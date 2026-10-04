@@ -735,7 +735,21 @@ details.fold > .pad{ border-top:2px solid var(--line); }
   .nav{ border-right:none; border-bottom:2px solid var(--line); }
   .nav ul{ display:flex; flex-wrap:wrap; gap:4px; padding:8px; }
   .nav a{ margin:0; }
-  .nav .sig{ display:none; }
+  /* 窄屏下不隐藏署名：侧栏已变成顶部横向导航，这里改为紧凑单行展示。
+     上游原实现是 display:none，导致作者/公众号/博客在窄屏完全消失、
+     且没有任何替代位置——对需要署名的开源项目不合适。 */
+  .nav .sig{
+    display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px;
+    padding:7px 10px; border-top:1px solid var(--line-soft);
+    font-size:11px; line-height:1.5;
+  }
+  .nav .sig .row{ display:flex; align-items:center; gap:7px; }
+  .nav .sig .row[style]{ margin-top:0 !important; }
+  .nav .sig .credit{ margin-top:0; letter-spacing:.04em; }
+  .nav .sig .mp{ margin-top:0; }
+  .nav .sig .mp b{ color:var(--accent); }
+  .nav .sig a{ color:var(--accent); text-decoration:none; }
+  .nav .sig a:hover{ text-decoration:underline; }
   .pool{ border-top:2px solid var(--line); }
   .views{ position:static; }
   .view{ position:static; inset:auto; overflow:visible; padding:14px 14px 40px; }
