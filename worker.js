@@ -88,10 +88,18 @@ let currentAccount = null;     // 当前正在使用的账号（串行队列下�
 
 // 推荐清单的固定分组展示顺序；上游新增的分组按字典序排在末尾（不静默丢弃）。
 // 注意：clinePass / clineCloud 属订阅与云端额度，ClineFreePool 不展示，见上方说明。
-const RECOMMENDED_GROUP_ORDER = ["recommended", "free"];
+// ⚠️ **只保留 free 分组，刻意不展示 recommended。**
+//
+// 上游的 `recommended` 分组（实测 6 个）里装的是 claude-opus-5.5 / gpt-6-astra /
+// kimi-k3 这类**付费旗舰模型**——它们走的是账号余额（新用户 0.5 美元），不是免费额度。
+// 面板曾把它标成「默认走免费额度」，是错的：那点额度聊胜于无，点一下就烧掉大半。
+// 既然本项目的定位是免费额度池，就不该把它们摆在「可用模型」里充数。
+//
+// 判定依据是**分组归属**而非 cost 字段——实测上游返回的条目里 cost 恒为 null，
+// 不可依赖。free 分组的模型 ID 则明确带 `cline-free/` 前缀或 `:free` 后缀，可作交叉验证。
+const RECOMMENDED_GROUP_ORDER = ["free"];
 const RECOMMENDED_GROUP_META = {
-  recommended: { title: "官方推荐", sub: "默认走免费额度", color: "var(--accent)" },
-  free: { title: "免费模型", sub: "官方免费额度，不需要 credits", color: "var(--ok)" },
+  free: { title: "免费模型", sub: "走免费额度，不需要 credits", color: "var(--ok)" },
 };
 
 // 两个清单共用的缓存时长：同一个上游、同一类使用节奏，没有理由不同。
@@ -330,13 +338,9 @@ function parseRecommendedModels(raw) {
     if (!Array.isArray(arr) || !arr.length) continue;
     groups.push({ key, models: arr.filter((m) => m && m.id).map(normalizeRemoteModel) });
   }
-  for (const key of keys.sort()) {
-    if (RECOMMENDED_GROUP_ORDER.includes(key)) continue;
-    if (isPaidGroupKey(key)) continue;          // 订阅 / 云额度组不展示
-    const arr = raw[key];
-    if (!Array.isArray(arr) || !arr.length) continue;
-    groups.push({ key, models: arr.filter((m) => m && m.id).map(normalizeRemoteModel) });
-  }
+  // 其余分组一律不展示：recommended 是付费旗舰（烧余额），clinePass 要订阅，
+  // clineCloud 走云端额度。上游若新增分组同样不自动带上——宁可少展示，
+  // 也不把付费模型混进「免费额度池」里误导用户。
   const total = groups.reduce((n, g) => n + g.models.length, 0);
   if (!total) throw new Error("上游返回的免费模型列表为空");
   return groups;
@@ -5175,7 +5179,7 @@ input:focus,textarea:focus,select:focus{
       <!-- ── 模型 ── -->
       <!-- ── 模型 ──
            三段式布局（对齐 Go 版 cline-proxy 的模型库）：
-             ① 可用模型分组 —— 上游当前的免费通道（官方推荐/free 两组），卡片墙 + 整组添加
+             ① 可用模型分组 —— 上游当前的免费额度通道（free 组），卡片墙 + 整组添加
              ② 全部模型     —— 折叠，展开才抓（上游四百多条、约 500 KB），按供应商分组
              ③ 已启用模型   —— 真正会出现在 /v1/models 里的那些
            卡片交互三处共用同一套渲染函数，格式与行为完全一致。 -->
@@ -5192,6 +5196,10 @@ input:focus,textarea:focus,select:focus{
             <p class="desc">
               数据来自 <code>api.cline.bot</code>（由服务端抓取 —— 浏览器直连会被 CORS 拦截）。
               点分组标题右侧的「全部添加」可一键加入该组所有模型，点单个模型卡片上的 ＋ 单独添加；
+  <br><b>这里只列走免费额度的模型。</b>上游另有一个「官方推荐」分组，装的是
+  claude-opus / gpt-6 / kimi 这类付费旗舰——它们消耗账号余额（新用户仅 0.5 美元），
+  不是免费额度，因此<b>刻意不展示</b>，以免一点就烧掉大半余额。
+  需订阅的 ClinePass 与走云端额度的 Cline Cloud 同样不展示。
               重复添加会自动跳过。也可点「检测」先发一次小请求确认它现在能不能用（可能消耗少量额度）。
             </p>
           </div>
@@ -6654,17 +6662,31 @@ function filterCatalog(groups,q){
   return out;
 }
 
+// 这个区域叫「全部模型」，但既然本项目只做免费额度池，就**只列真走免费额度的**。
+// 上游那 400+ 个里绝大多数是付费模型（claude-opus / gpt-6 / kimi 等），摆出来等于
+// 诱导用户用 0.5 美元余额去烧。判定沿用 isFree()：\`:free\` 后缀或 \`cline-free/\` 前缀。
+// 匹配搜索同样只在这份免费集合里做，不会因为搜到付费模型就把它带出来。
+function filterFreeOnly(groups){
+  return (groups||[]).map(function(g){
+    return { key:g.key, models:(g.models||[]).filter(isFree) };
+  }).filter(function(g){ return g.models.length; });
+}
+
 function renderModelCatalog(){
-  var groups=state.mCatalog||[];
-  if(!groups.length){ $("mCatalog").innerHTML='<div class="empty">暂无数据</div>'; return; }
+  var groups=filterFreeOnly(state.mCatalog);
+  if(!groups.length){
+    $("mCatalog").innerHTML='<div class="empty">上游暂无走免费额度的模型（免费通道是轮换促销，会随时间变化）。</div>';
+    return;
+  }
   var q=$("mCatSearch").value;
   // 搜索时重新按供应商分组：过滤后空掉的组不该留一个空壳标题
   var shown=q?filterCatalog(groups,q):groups;
   var inst=ownedSet();
   var matched=shown.reduce(function(n,g){ return n+(g.models||[]).length; },0);
+  var freeTotal=groups.reduce(function(n,g){ return n+(g.models||[]).length; },0);
   $("mCatCount").textContent=q
-    ? ("匹配 "+matched+" 个 / 共 "+state.mCatalogTotal+" 个")
-    : (state.mCatalogTotal+" 个模型 · "+groups.length+" 个供应商");
+    ? ("匹配 "+matched+" 个 / 共 "+freeTotal+" 个免费模型")
+    : (freeTotal+" 个免费模型 · "+groups.length+" 个供应商");
   if(!shown.length){
     $("mCatalog").innerHTML='<div class="empty">没有匹配「'+esc(q)+'」的模型。</div>';
     return;

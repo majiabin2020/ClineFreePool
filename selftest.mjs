@@ -649,13 +649,22 @@ console.log("\n【9b】模型库：推荐分组 / 全部模型 / 可用性检测
 
   // 推荐分组：面板一打开就拉，所以要走缓存、不能每次回源
   const lib = await (await req("/v1/models/library", { headers: AUTH })).json();
-  // ClineFreePool 只展示免费通道：订阅制（clinePass）与云额度（clineCloud）不展示。
-  check("推荐清单只保留免费相关分组（recommended, free）",
-    lib.groups.map((g) => g.key).join() === "recommended,free",
+  // ClineFreePool 只展示走免费额度的模型：付费旗舰（recommended）、订阅制
+  //（clinePass）、云额度（clineCloud）三类都不展示。
+  // 之前漏了 recommended——它装的是 claude-opus / gpt-6 / kimi 这类烧余额的模型，
+  // 面板却标成「默认走免费额度」，用户一点就烧掉 0.5 美元余额的大半。
+  check("推荐清单只保留 free 分组（付费旗舰 recommended 不展示）",
+    lib.groups.map((g) => g.key).join() === "free",
     JSON.stringify(lib.groups.map((g) => g.key)));
-  check("不展示需订阅 / 云额度分组",
-    !lib.groups.some((g) => g.key === "clinePass" || g.key === "clineCloud"),
+  check("不展示付费 / 订阅 / 云额度分组",
+    !lib.groups.some((g) => ["recommended", "clinePass", "clineCloud"].includes(g.key)),
     "含付费分组: " + JSON.stringify(lib.groups.map((g) => g.key)));
+  check("分组说明不再声称「默认走免费额度」",
+    !lib.groups.some((g) => g.meta && /走免费额度/.test(g.meta.sub || "") && g.key !== "free"),
+    "分组说明误导: " + JSON.stringify(lib.groups.map((g) => g.meta)));
+  check("全部模型区也过滤为仅免费（前端 filterFreeOnly 存在）",
+    /function filterFreeOnly\(/.test(workerSrc),
+    "全部模型区应过滤掉付费模型");
   check("分组带展示用的 meta（标题/说明/颜色）",
     lib.groups.every((g) => g.meta && g.meta.title), JSON.stringify((lib.groups[0] || {}).meta));
   check("模型带 name / description / tags（面板要显示）",
