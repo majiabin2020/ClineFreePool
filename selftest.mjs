@@ -665,6 +665,12 @@ console.log("\n【9b】模型库：推荐分组 / 全部模型 / 可用性检测
   check("全部模型区也过滤为仅免费（前端 filterFreeOnly 存在）",
     /function filterFreeOnly\(/.test(workerSrc),
     "全部模型区应过滤掉付费模型");
+  check("免费判定以上游 free 分组的 ID 集合为权威，不靠 ID 后缀猜",
+    /function freeModelIdSet\(/.test(workerSrc) && /state\.mLibGroups/.test(workerSrc),
+    "应从 state.mLibGroups 的 free 组取权威 ID 集合");
+  check("free 集合未加载时才有后缀兜底（不是主判定）",
+    /if \(s\.size\) return s\.has\(id\)/.test(workerSrc),
+    "free 集合非空时应以集合为准，仅在空时按后缀兜底");
   check("分组带展示用的 meta（标题/说明/颜色）",
     lib.groups.every((g) => g.meta && g.meta.title), JSON.stringify((lib.groups[0] || {}).meta));
   check("模型带 name / description / tags（面板要显示）",

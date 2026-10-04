@@ -6678,9 +6678,34 @@ function filterCatalog(groups,q){
 // 上游那 400+ 个里绝大多数是付费模型（claude-opus / gpt-6 / kimi 等），摆出来等于
 // 诱导用户用 0.5 美元余额去烧。判定沿用 isFree()：\`:free\` 后缀或 \`cline-free/\` 前缀。
 // 匹配搜索同样只在这份免费集合里做，不会因为搜到付费模型就把它带出来。
+// 免费判定：**以上游 recommended-models 的 free 数组为准**，不靠 ID 后缀猜。
+//
+// 踩过的坑：原先用 isFree()（只看 \`:free\` 后缀或 \`cline-free/\` 前缀）过滤全量清单，
+// 但实测 free 分组里有\`stealth/space-bunny-alpha\` —— 既无后缀也无该前缀，
+// 按后缀判定会被漏掉。反过来 \`:free\` 后缀的 17 个（qwen/gemma/nemotron 等 OpenRouter 系）
+// 也不在 free 分组里，属于另一套来源，是否真免 credits 由上游决定，不该由前端猜。
+//
+// 所以这里用 freeModelIdSet()（服务端从 free 分组下发的权威 ID 集合）做判定，
+// 后缀判定只作为**补充**（free 集合尚未加载时，先按后缀给出临时结果）。
+var _freeIdSet = null;
+function freeModelIdSet(){
+  if(_freeIdSet) return _freeIdSet;
+  _freeIdSet = new Set();
+  var gs = state.mLibGroups || [];
+  for (var i=0;i<gs.length;i++){
+    if (gs[i].key !== "free") continue;
+    for (var j=0;j<(gs[i].models||[]).length;j++) _freeIdSet.add(gs[i].models[j].id);
+  }
+  return _freeIdSet;
+}
+function isFreeModelId(id){
+  var s = freeModelIdSet();
+  if (s.size) return s.has(id);          // free 集合已加载 → 以它为准
+  return /:free$/.test(id) || id.indexOf("cline-free/") === 0;   // 兜底
+}
 function filterFreeOnly(groups){
   return (groups||[]).map(function(g){
-    return { key:g.key, models:(g.models||[]).filter(isFree) };
+    return { key:g.key, models:(g.models||[]).filter(function(m){ return isFreeModelId(m.id); }) };
   }).filter(function(g){ return g.models.length; });
 }
 
