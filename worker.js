@@ -4298,10 +4298,6 @@ body::after {
 .nav a.on .cnt { color:var(--accent); }
 .nav .sig { padding:10px 14px; border-top:2px solid var(--line); font-size:11px; color:var(--ink-3); }
 .nav .sig .row { display:flex; align-items:center; gap:7px; }
-.nav .sig .credit { margin-top:6px; letter-spacing:.06em; }
-.nav .sig .credit b { color:var(--ink-2); }
-.nav .sig .mp { margin-top:3px; color:var(--ink-3); }
-.nav .sig .mp b { color:var(--accent); }
 
 /* 账号池（左栏） */
 .pool { padding:10px 14px; border-top:2px solid var(--line); }
@@ -4933,9 +4929,6 @@ details.fold > .pad{ border-top:2px solid var(--line); }
   }
   .nav .sig .row{ display:flex; align-items:center; gap:7px; }
   .nav .sig .row[style]{ margin-top:0 !important; }
-  .nav .sig .credit{ margin-top:0; letter-spacing:.04em; }
-  .nav .sig .mp{ margin-top:0; }
-  .nav .sig .mp b{ color:var(--accent); }
   .nav .sig a{ color:var(--accent); text-decoration:none; }
   .nav .sig a:hover{ text-decoration:underline; }
   .pool{ border-top:2px solid var(--line); }
@@ -5065,9 +5058,6 @@ input:focus,textarea:focus,select:focus{
     <div class="sig">
       <div class="row"><span class="fact"><span class="sq" id="keySq"></span><span id="keyTxt">密钥检查中</span></span></div>
       <div class="row" style="margin-top:5px"><span id="verTxt">v-</span> <span id="cacheTxt"></span></div>
-      <div class="credit">作者 <b>马佳彬</b></div>
-      <div class="mp">公众号 <b>马佳彬</b></div>
-      <div class="mp">博客 <b><a href="https://www.majiabin.com" target="_blank" rel="noopener">www.majiabin.com</a></b></div>
     </div>
   </nav>
 

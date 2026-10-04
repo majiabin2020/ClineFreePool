@@ -806,12 +806,20 @@ console.log("\n【10】控制台页面完整性");
     !/<script[^>]+src=/i.test(html) && !/<link[^>]+stylesheet/i.test(html),
     "不应引用外部 js/css，否则离线/内网部署会挂");
   check("品牌已改为 ClineFreePool", html.includes("ClineFreePool") && html.includes("<title>ClineFreePool"));
-  check("署名作者 马佳彬", html.includes("马佳彬"));
-  check("署名公众号 马佳彬", html.includes("公众号 <b>马佳彬</b>"));
-  check("博客链接 www.majiabin.com", html.includes("www.majiabin.com"));
   check("无原作者署名残留（品牌已完全归属）",
     !html.includes("Patrick") && !html.includes("AI实用talk"),
     "署名与页脚不应再出现原作者信息");
+  // 控制台不展示作者 / 公众号 / 博客（按需求移除）。项目归属信息只保留在
+  // README、LICENSE 与代码头部注释里—— 那是开源该有的位置，控制台只管用。
+  check("控制台不展示作者署名（已按需求移除）",
+    !html.includes('class="credit"') && !html.includes('class="mp"'),
+    "署名区应已从控制台移除");
+  check("控制台不出现作者 / 公众号 / 博客信息",
+    !html.includes("马佳彬") && !html.includes("majiabin.com"),
+    "控制台不应出现个人信息");
+  check("密钥与版本状态行仍保留（实用信息不能一起删）",
+    html.includes('id="keyTxt"') && html.includes('id="verTxt"'),
+    "密钥状态与版本号应保留");
   check("像素 WiFi 图标为内联 SVG（1px 网格 rect）",
     /<svg class="logo"[^>]*><rect /.test(html), "品牌区应有像素 WiFi 的 SVG");
   check("国产模型识别表存在", html.includes("CN_PROVIDERS") && html.includes("deepseek"));
