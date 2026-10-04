@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/v1/chat/completions", "destination": "/api/index" },
+    { "source": "/v1/messages", "destination": "/api/index" },
+    { "source": "/v1/models", "destination": "/api/index" },
+    { "source": "/v1/health", "destination": "/api/index" },
+    { "source": "/chat/completions", "destination": "/api/index" },
+    { "source": "/messages", "destination": "/api/index" },
+    { "source": "/models", "destination": "/api/index" }
+  ]
+}

@@ -1,0 +1,6 @@
+name = "clinefreepool"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# 部署后输出 https://clinefreepool.<你的子域>.workers.dev
+# 注意：CLINE_REFRESH_TOKEN 必须用 wrangler secret 设置，不要写在这里！

@@ -1,0 +1,87 @@
+name: 获取 Cline refreshToken
+
+# 只允许手动触发（Actions 页面 → Run workflow）
+on:
+  workflow_dispatch:
+    inputs:
+      poll_timeout:
+        description: "授权等待秒数（默认 300，可在手机上慢慢操作）"
+        required: false
+        default: "300"
+        type: string
+      use_warp:
+        description: "是否启用 WARP 网络（绕注册风控；若失效可关掉重试）"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  oauth:
+    runs-on: ubuntu-latest
+    steps:
+      # 强制校验 TG 变量：不配置则不运行
+      - name: 校验 TG 变量（未配置则不运行）
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          set -u
+          if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
+            echo "❌ 未配置 TG_BOT_TOKEN 或 TG_CHAT_ID，工作流不运行。"
+            echo "   请在仓库 Settings → Secrets and variables → Actions 配置这两个 secret："
+            echo "     - TG_BOT_TOKEN：Telegram Bot 的 token"
+            echo "     - TG_CHAT_ID  ：接收消息的 chat_id"
+            exit 1
+          fi
+          echo "✅ TG 变量已配置，继续。"
+
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # =========================
+      # 4️⃣ WARP 网络（换出口 IP，绕注册短信风控）
+      # =========================
+      - name: Enable WARP
+        if: inputs.use_warp == 'true'
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: dual
+          mode: client
+
+      # =========================
+      # 5️⃣ 检查 IP（确认 WARP 生效）
+      # =========================
+      - name: Check IP
+        if: inputs.use_warp == 'true'
+        run: |
+          echo "🌍 Current IP:"
+          curl -s https://api.ipify.org
+          echo ""
+          curl -s https://ipinfo.io
+
+      - name: 运行 OAuth 获取脚本（授权链接与 token 推送 TG）
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          OAUTH_POLL_TIMEOUT: ${{ inputs.poll_timeout }}
+        run: python3 cline_oauth.py
+
+      # 清理旧 run jobs：只保留最新 1 条运行记录
+      - name: clear old run jobs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list --workflow="${{ github.workflow }}" --limit=100 --json databaseId --jq '.[].databaseId')
+          count=0
+          for run_id in $runs; do
+            count=$((count + 1))
+            if [ $count -gt 1 ]; then
+              echo "deleted: $run_id"
+              gh run delete $run_id || true
+            fi
+          done

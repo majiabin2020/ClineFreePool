@@ -1,0 +1,22 @@
+# 统一以 LF 检出（覆盖 Windows 上 Git 默认的 core.autocrlf=true）
+#
+# 原因：worker.js 内联的控制台 HTML 存放在 JS 模板字符串里，而模板字符串
+# 在**运行时**会强制把 CRLF 规范化成 LF。若 console.src.html 以 CRLF 检出，
+# selftest 的「与 console.src.html 一致（构建产物同步）」就会拿 LF（实际服务
+# 的内容）去比 CRLF（磁盘上的源文件），永远不相等——即克隆后自检必挂。
+#
+# 另外 build-console.mjs / build-vercel.mjs 是按字节做文本替换和比对的，
+# 行尾漂移会让「构建产物是否同步」失去意义，所以整个仓库统一 LF。
+* text=auto eol=lf
+
+# ---- 例外：Windows 批处理必须 CRLF ----
+# cmd.exe 不认 LF 行尾的 .bat：会把多行粘成一条命令，
+# 报 "'chcp' 不是内部或外部命令" 之类的连环错误。
+# 这条例外必须放在上面的通配规则之后（后面的规则优先级更高）。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ---- 例外：Unix shell 脚本必须 LF ----
+# 反过来，CRLF 会让 bash 把行尾的 \r 当成命令的一部分，
+# 报 "$'\r': command not found"。
+*.sh text eol=lf
