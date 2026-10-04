@@ -3,8 +3,6 @@
 把 Cline（https://cline.bot）的免费模型能力转成 OpenAI / Anthropic 兼容 API，
 **在本机跑起来就能用**，不用部署、不用花钱。
 
-> 📌 作者 **马佳彬** · 博客 **www.majiabin.com** · MIT License
->
 > 本项目也可以部署成在线服务（Cloudflare Workers / Vercel），见 [docs/部署到云端.md](docs/部署到云端.md)。
 
 ---
@@ -424,9 +422,7 @@ node selftest.mjs
 
 ## 来源与许可
 
-**ClineFreePool** · 把 Cline 的免费模型转成 OpenAI / Anthropic 兼容 API  
-作者：**马佳彬** · 博客 <www.majiabin.com> · MIT License  
-仓库：<https://github.com/majiabin/ClineFreePool>
+**ClineFreePool** · 把 Cline 的免费模型转成 OpenAI / Anthropic 兼容 API
 
 Cline 是 Cline.bot 的产品，本项目仅作接口转换与账号池调度，**不归属 Cline 官方**。
 

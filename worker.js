@@ -5,7 +5,6 @@
  *
  * 来源：逆向自 https://github.com/luawei1/cline2api (Go 版反向代理)，
  *       经 pingmike2/cline2api-workers 重写为纯 JS Worker，本项目在其基础上继续改造。
- *       作者：马佳彬 · 博客 www.majiabin.com · 详见 README.md 文末「来源与许可」。
  *
  * 核心逻辑：
  *  1. 每次请求用 refreshToken 换 accessToken（缓存到内存，过期自动刷新）

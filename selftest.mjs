@@ -814,9 +814,14 @@ console.log("\n【10】控制台页面完整性");
   check("控制台不展示作者署名（已按需求移除）",
     !html.includes('class="credit"') && !html.includes('class="mp"'),
     "署名区应已从控制台移除");
-  check("控制台不出现作者 / 公众号 / 博客信息",
-    !html.includes("马佳彬") && !html.includes("majiabin.com"),
-    "控制台不应出现个人信息");
+  // 控制台不放任何个人信息：不硬编码具体名字，改用结构性检查
+  //（署名区类名已被移除，且页面里没有指向个人站点的外链）。
+  check("控制台不出现个人信息（无个人站点外链）",
+    !/<a[^>]+href="https?:\/\/(?!www\.w3\.org|claude\.bot|github\.com\/[^"\s]*\/cline)/i.test(html),
+    "控制台不应出现指向个人站点的外链");
+  check("控制台无署名区与个人信息文案",
+    !/class="credit"|class="mp"|作者\s*<b>|公众号\s*<b>/.test(html),
+    "署名区应已从控制台移除");
   check("密钥与版本状态行仍保留（实用信息不能一起删）",
     html.includes('id="keyTxt"') && html.includes('id="verTxt"'),
     "密钥状态与版本号应保留");

@@ -124,8 +124,7 @@ curl -s http://127.0.0.1:8787/v1/health
 ## 品牌与署名（改动时务必保持）
 
 - 项目名：**ClineFreePool**（不是 ClinePool、不是 cline-free）
-- 作者：**马佳彬** · 公众号 **马佳彬** · 博客 **www.majiabin.com**
-- 许可：MIT，保留上游致谢（见 `LICENSE` 与 README 文末「来源与许可」）
+- 许可：MIT（保留上游致谢，见 LICENSE 与 README）
 
 **以下字符串是 API 契约或协议标识，改名时绝对不能动**：
 
