@@ -7,8 +7,8 @@
  *
  * 把 Cline (https://cline.bot) 的免费模型能力转成 OpenAI / Anthropic 兼容 API。
  *
- * 来源：逆向自 https://github.com/luawei1/cline2api (Go 版反向代理)，
- *       经 pingmike2/cline2api-workers 重写为纯 JS Worker，本项目在其基础上继续改造。
+ * 来源：基于 https://github.com/Patrick-mufeng/cline-free 继续开发（直接代码基础），
+ *       其来源链条为 pingmike2/cline2api-workers → luawei1/cline2api (Go 版反向代理)。
  *
  * 核心逻辑：
  *  1. 每次请求用 refreshToken 换 accessToken（缓存到内存，过期自动刷新）
@@ -530,7 +530,7 @@ function modelKnownUpstream(id) {
 // 这里只作为**兜底**，正常路径由 defaultModelId() 从实时列表里取，因此这里刻意留空——
 // 写死一个具体ID 会在上游促销下线后变成"已失效的默认模型"，比没有默认值更糟。
 const DEFAULT_MODEL = "";
-const VERSION = "2.5.0";
+const VERSION = "2.5.1";
 
 // ===== 入口 =====
 // Cloudflare Workers 入口。Vercel 入口由 build-vercel.mjs 依据下面的
