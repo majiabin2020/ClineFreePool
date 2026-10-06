@@ -530,7 +530,7 @@ function modelKnownUpstream(id) {
 // 这里只作为**兜底**，正常路径由 defaultModelId() 从实时列表里取，因此这里刻意留空——
 // 写死一个具体ID 会在上游促销下线后变成"已失效的默认模型"，比没有默认值更糟。
 const DEFAULT_MODEL = "";
-const VERSION = "2.5.1";
+const VERSION = "2.5.2";
 
 // ===== 入口 =====
 // Cloudflare Workers 入口。Vercel 入口由 build-vercel.mjs 依据下面的
@@ -995,11 +995,18 @@ function parseAccounts(env) {
   if (accountsRawEnv !== raw || accountPoolDirty || accounts.length !== tokens.length + dyn.length) {
     const old = accounts;
     const byOrigin = new Map();
-    for (const a of old) if (a && a.originToken) byOrigin.set(a.originToken, a);
+    // 同样用 originOf 兜底：老版本落盘的数据可能只有 refreshToken 而没有
+    // originToken，若这里只认 a.originToken，这些账号每次重建都会被当成
+    // "新账号"，连带丢掉 token 缓存与冷却。
+    for (const a of old) {
+      const o = (a && (a.originToken || a.refreshToken)) || "";
+      if (o) byOrigin.set(o, a);
+    }
     const build = (rt, origin, prev) => {
-      if (prev && prev.originToken === origin) {
+      if (prev && (prev.originToken || prev.refreshToken) === origin) {
         // 复用旧对象，但同步最新的 refreshToken（上游可能已轮换过）
         prev.refreshToken = rt;
+        prev.originToken = origin;
         return prev;
       }
       return {
@@ -2513,16 +2520,52 @@ async function handleAccountAction(request, env) {
         },
       }, 400);
     }
-    // 运行时账号按 originToken 匹配（上游轮换过 refreshToken 也认得出来）
+
+    // 身份比对必须**两边都过 originOf兜底**。
+    //
+    // 踩过的坑：这里原先写成 `(d.originToken || d.refreshToken) !== target.originToken`——
+    // 右边是裸取值。若 target 恰好缺originToken（老版本落盘数据、手工编辑过的 state、
+    // 任何让该字段为空的路径），比较会变成 "非空 !== undefined" 恒成立，
+    // 结果**整个账号池被一次清空**，用户表现为「移除一个，其他全没了」。
+    // 反过来在同邮箱多账号的场景下也会删不干净。
+    //
+    // 正确写法：左右都用同一个归一化函数（originOf 见 parseAccounts 里的定义）。
+    // 身份取不到时不做破坏性操作，直接报错让人重来，而不是赌一把。
+    const originOf = (d) => (d && (d.originToken || d.refreshToken)) || "";
+    const targetOrigin = originOf(target);
+    if (!targetOrigin) {
+      return jsonResponse({
+        error: {
+          message: "这个账号缺少身份标识（既无 originToken 也无 refreshToken），"
+                 + "无法安全移除。请点「刷新」重新读取账号池；仍不行则编辑 "
+                 + "~/.ClineFreePool-state.local.json 手工清掉该条目后重启。",
+          type: "account_error",
+        },
+      }, 400);
+    }
+
+    // 按身份移除：上游轮换过 refreshToken 的账号也能认出来（identity 就是 originToken）。
     const list = runtimeState.dynamicAccounts;
     const before = list.length;
-    runtimeState.dynamicAccounts = list.filter((d) => (d.originToken || d.refreshToken) !== target.originToken);
+    runtimeState.dynamicAccounts = list.filter((d) => originOf(d) !== targetOrigin);
+    const removed = before - runtimeState.dynamicAccounts.length;
+    if (!removed) {
+      return jsonResponse({
+        error: {
+          message: "账号池里已找不到这个账号（可能已被移除）。请点「刷新」重新读取。",
+          type: "account_error",
+        },
+      }, 404);
+    }
+
     accountPoolDirty = true;
     runtimeState.disabledIds = disabledSet().filter((x) => x !== target.id);
     clearCooldownAccount(target.id);
-    scheduleStateFlush();
+    // 正在用这个账号时立刻让位，否则它会继续被用到过期
     if (currentAccount === target) currentAccount = null;
-    return respond({ removed: before - runtimeState.dynamicAccounts.length, message: "已移除该账号" });
+    // 立刻落盘：移除是不可撤销操作，若只靠防抖定时器，进程被关掉就白删了
+    flushStateNow();
+    return respond({ removed, message: `已移除该账号（剩余 ${runtimeState.dynamicAccounts.length} 个）` });
   }
 
   return jsonResponse({ error: { message: "未知的 action: " + action, type: "account_error" } }, 400);

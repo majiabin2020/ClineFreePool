@@ -1868,6 +1868,53 @@ console.log("\n【21】请求体上限与登录限流");
     "状态码序列: " + codes.join(","));
 }
 
+// ---------- 【22】账号移除：多账号下不能误删全池 ----------
+//
+// 真实反馈：加了 3 个账号后移除不掉。根因是 remove 分支比对身份时右边用了裸的
+// target.originToken，而其他地方都走 `(originToken || refreshToken)` 兜底。
+// 一旦 target 缺 originToken（老版本落盘数据 / 手工编辑过的 state），
+// 比较变成 "非空 !== undefined" 恒成立 → **整个账号池被一次清空**。
+{
+  console.log("\n【22】账号移除：身份比对兜底（回归）");
+  const { readFileSync } = await import("node:fs");
+  const srcNow = readFileSync(new URL("./worker.js", import.meta.url), "utf8");
+  const removeBlock = (srcNow.match(/if \(action === "remove"\) \{[\s\S]*?\n  \}/) || [""])[0];
+
+  check("remove 分支两边都用 originOf 兜底比对身份",
+    /const originOf = \(d\) => \(d && \(d\.originToken \|\| d\.refreshToken\)\) \|\| "";/.test(removeBlock)
+    && /originOf\(d\) !== targetOrigin/.test(removeBlock),
+    "应统一用 originOf 归一化后比较");
+
+  check("移除前校验身份可取，取不到就报错而不是赌一把",
+    /if \(!targetOrigin\)/.test(removeBlock),
+    "身份为空时必须拒绝破坏性操作");
+
+  check("移除结果做零删除校验并立刻落盘",
+    /if \(!removed\)/.test(removeBlock) && /flushStateNow\(\)/.test(removeBlock),
+    "应校验实际删了几个，并立刻落盘（防抖定时器可能在进程退出时丢改动）");
+
+  // 行为验证：直接跑归一化逻辑，确认 undefined 不会全池清空
+  const originOfT = (d) => (d && (d.originToken || d.refreshToken)) || "";
+  const pool = [
+    { refreshToken: "rt_alpha_1", originToken: "rt_alpha_1" },
+    { refreshToken: "rt_beta_1" },            // 老数据：缺 originToken
+    { refreshToken: "rt_gamma_1", originToken: "rt_gamma_1" },
+  ];
+  const kept = pool.filter((d) => originOfT(d) !== originOfT({ originToken: "rt_beta_1" }));
+  check("缺 originToken 的账号仍能按 refreshToken 身份被移除",
+    kept.length === 2 && !kept.some((d) => d.refreshToken === "rt_beta_1"),
+    "实际剩余 " + kept.length + " 个");
+
+  const noneRemoved = pool.filter((d) => originOfT(d) !== originOfT({}));
+  check("目标身份为空时不会误删全池（旧实现会全清）",
+    noneRemoved.length === pool.length,
+    "旧实现会剩 " + noneRemoved.length + " 个，现应剩 " + pool.length + " 个");
+
+  check("parseAccounts 的 byOrigin 也走同样兜底（老数据不丢缓存）",
+    /const o = \(a && \(a\.originToken \|\| a\.refreshToken\)\) \|\| "";\s*\n\s*if \(o\) byOrigin\.set\(o, a\);/.test(srcNow),
+    "byOrigin 应与 remove 用同一套归一化");
+}
+
 // ---------- 收尾 ----------
 upstream.close();
 console.log("\n" + "=".repeat(56));
